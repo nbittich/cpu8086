@@ -91,7 +91,7 @@ fn main() {
                         .read_exact(&mut buffer)
                         .expect("op mov memory mode 16bits displacement requires two extra bytes");
                     let disp_hi = buffer[0];
-                    acc |= ((disp_hi as u16) << 8);
+                    acc |= (disp_hi as u16) << 8;
                 }
                 let mut dest = EFFECTIVE_ADDR_CALCULATION_MOD[rm as usize].to_string();
                 if acc > 0 {
@@ -116,7 +116,7 @@ fn main() {
                 reader
                     .read_exact(&mut buffer)
                     .expect("immediate to register requires two extra bytes");
-                acc |= ((buffer[0] as u16) << 8);
+                acc |= (buffer[0] as u16) << 8;
             }
             let reg = REGISTERS[add_two_bytes(reg, w) as usize]; // register operand / source
             println!("mov {reg}, {acc}");
