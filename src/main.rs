@@ -56,8 +56,8 @@ fn main() {
                     println!("reg: {reg:b}");
                     println!("rm: {rm:b}");
                 }
-                let reg = REGISTERS[add_two_bytes(reg, w) as char as usize]; // register operand / source
-                let rm = REGISTERS[add_two_bytes(rm, w) as char as usize]; // register operand / dest
+                let reg = REGISTERS[add_two_bytes(reg, w) as usize]; // register operand / source
+                let rm = REGISTERS[add_two_bytes(rm, w) as usize]; // register operand / dest
 
                 // it should be the opposite, but nasm always return 0
                 // if d is 0, instruction source is specified in reg field, else if d is 1 in rm field
