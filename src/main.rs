@@ -3,10 +3,15 @@ use std::{
     fs::OpenOptions,
     io::{BufReader, Read},
     path::PathBuf,
+    usize,
 };
 
 const OP_MOV: u8 = 0b100010;
 const REGISTER_TO_REGISTER: u8 = 0b11;
+
+const REGISTERS: [&str; 16] = [
+    "al", "ax", "cl", "cx", "dl", "dx", "bl", "bx", "ah", "sp", "ch", "bp", "dh", "si", "bh", "di",
+];
 
 fn main() {
     let path: PathBuf = args().skip(1).take(1).map(PathBuf::from).collect();
@@ -38,7 +43,6 @@ fn main() {
             if cfg!(debug_assertions) {
                 println!("############# DEBUG ##############");
                 println!("{byte_1:b} {byte_2:b}");
-                println!("{byte_1:b} {byte_2:b}");
                 println!("opcode : {op_code:b}");
                 println!("d : {d:b}");
                 println!("w : {w:b}");
@@ -46,42 +50,25 @@ fn main() {
             }
 
             if reg_mode == REGISTER_TO_REGISTER {
-                let reg = register_table((byte_2 >> 3) & 7, w); // register operand / source
-                let rm = register_table(byte_2 & 7, w); // register operand / dest
+                let reg = (byte_2 >> 3) & 7;
+                let rm = byte_2 & 7;
                 if cfg!(debug_assertions) {
-                    println!("reg: {reg}");
-                    println!("rm: {rm}");
+                    println!("reg: {reg:b}");
+                    println!("rm: {rm:b}");
                 }
+                let reg = REGISTERS[add_two_bytes(reg, w) as char as usize]; // register operand / source
+                let rm = REGISTERS[add_two_bytes(rm, w) as char as usize]; // register operand / dest
+
                 // it should be the opposite, but nasm always return 0
                 // if d is 0, instruction source is specified in reg field, else if d is 1 in rm field
                 let (source, dest) = if d == 0 { (reg, rm) } else { (rm, reg) };
                 println!("mov {dest}, {source}");
             }
-            if cfg!(debug_assertions) {
-                println!("############# DEBUG ##############");
-            }
         }
     }
 }
 
-fn register_table(register: u8, w: u8) -> &'static str {
-    match (register, w) {
-        (0, 0) => "al",
-        (0, 1) => "ax",
-        (1, 0) => "cl",
-        (1, 1) => "cx",
-        (0b10, 0) => "dl",
-        (0b10, 1) => "dx",
-        (0b11, 0) => "bl",
-        (0b11, 1) => "bx",
-        (0b100, 0) => "ah",
-        (0b100, 1) => "sp",
-        (0b101, 0) => "ch",
-        (0b101, 1) => "bp",
-        (0b110, 0) => "dh",
-        (0b110, 1) => "si",
-        (0b111, 0) => "bh",
-        (0b111, 1) => "di",
-        _ => panic!("{w} & {register} not implemented"),
-    }
+#[inline]
+fn add_two_bytes(high: u8, low: u8) -> u8 {
+    (high << 0b1) | low
 }
