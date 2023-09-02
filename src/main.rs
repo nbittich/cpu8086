@@ -7,9 +7,10 @@ use std::{
 };
 
 const OP_MOV: u8 = 0b100010;
+const OP_IMMEDIATE_TO_REGISTER: u8 = 0b1011;
 const REGISTER_TO_REGISTER_MODE: u8 = 0b11;
 const MEMORY_MODE: u8 = 0;
-const MEMORY_MODE_EIGHT_BITS_DISPLACEMENT: u8 = 1;
+const _MEMORY_MODE_EIGHT_BITS_DISPLACEMENT: u8 = 1;
 const MEMORY_MODE_SIXTEEN_BITS_DISPLACEMENT: u8 = 2;
 
 const REGISTERS: [&str; 16] = [
@@ -36,9 +37,7 @@ fn main() {
     while let Ok(_) = reader.read_exact(&mut buffer) {
         let byte_1 = buffer[0];
 
-        let op_code = byte_1 >> 2; // opcode
-
-        if op_code == OP_MOV {
+        if byte_1 >> 2 == OP_MOV {
             let d = (byte_1 >> 1) & 0b1; // direction is to register / direction is from register
 
             let w = byte_1 & 1; // word/byte operation
@@ -51,11 +50,10 @@ fn main() {
             let reg = (byte_2 >> 3) & 7;
             let rm = byte_2 & 7;
 
-            let (reg, rm) = if d == 1 { (reg, rm) } else { (rm, reg) };
+            //   let (reg, rm) = if d == 0 { (reg, rm) } else { (rm, reg) };
             if cfg!(debug_assertions) {
                 println!("############# DEBUG ##############");
                 println!("{byte_1:b} {byte_2:b}");
-                println!("opcode : {op_code:b}");
                 println!("d : {d:b}");
                 println!("w : {w:b}");
                 println!("reg_mod : {reg_mode:b}");
@@ -68,12 +66,15 @@ fn main() {
             if reg_mode == REGISTER_TO_REGISTER_MODE {
                 let reg = REGISTERS[add_two_bytes(reg, w) as usize]; // register operand / source
                 let rm = REGISTERS[add_two_bytes(rm, w) as usize]; // register operand / dest
-
-                println!("mov {reg}, {rm}");
-            } else if reg_mode < 3 {
+                if d == 0 {
+                    println!("mov {rm}, {reg}",);
+                } else {
+                    println!("mov {reg}, {rm}",);
+                }
+            } else if reg_mode < 0b11 {
                 let mut acc = 0u16;
 
-                if reg_mode > 0 || rm == 3 {
+                if reg_mode > 0 || rm == 0b110 {
                     reader
                         .read_exact(&mut buffer)
                         .expect("op mov memory mode 8bits displacement requires an extra byte");
@@ -84,7 +85,7 @@ fn main() {
                 let source = REGISTERS[add_two_bytes(reg, w) as usize]; // register operand / source
 
                 if reg_mode == MEMORY_MODE_SIXTEEN_BITS_DISPLACEMENT
-                    || (reg_mode == MEMORY_MODE && rm == 3)
+                    || (reg_mode == MEMORY_MODE && rm == 0b110)
                 {
                     reader
                         .read_exact(&mut buffer)
@@ -92,20 +93,33 @@ fn main() {
                     let disp_hi = buffer[0];
                     acc = ((disp_hi as u16) << 8) | acc as u16;
                 }
-                let mut dest = format!("{}", EFFECTIVE_ADDR_CALCULATION_MOD[rm as usize],);
+                let mut dest = format!("{}", EFFECTIVE_ADDR_CALCULATION_MOD[rm as usize]);
                 if acc > 0 {
-                    dest += " + ";
-                    dest += &format!("{acc}");
+                    dest = format!("{dest} + {acc}");
                 }
-                dest.insert(0, '[');
-                dest.push(']');
 
                 if d == 0 {
-                    println!("mov {dest}, {source}",);
+                    println!("mov [{dest}], {source}",);
                 } else {
-                    println!("mov {source}, {dest}",);
+                    println!("mov {source}, [{dest}]",);
                 }
             }
+        } else if byte_1 >> 4 == OP_IMMEDIATE_TO_REGISTER {
+            let w = (byte_1 & 0b00001000) >> 3;
+            let reg = byte_1 & 0b00000111;
+            reader
+                .read_exact(&mut buffer)
+                .expect("immediate to register requires one extra bytes");
+            let data = buffer[0];
+            let mut acc = data as u16;
+            if w == 1 {
+                reader
+                    .read_exact(&mut buffer)
+                    .expect("immediate to register requires two extra bytes");
+                acc = ((buffer[0] as u16) << 8) | acc as u16;
+            }
+            let reg = REGISTERS[add_two_bytes(reg, w) as usize]; // register operand / source
+            println!("mov {reg}, {acc}");
         }
     }
 }
