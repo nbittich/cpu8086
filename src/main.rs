@@ -29,9 +29,12 @@ fn main() {
         let w = byte_1 & 1; // word/byte operation
 
         let reg_mode = byte_2 >> 6; // register mode / memory mode
-        let dest = (byte_2 >> 3) & 7; // register operand / dest
-        let source = byte_2 & 7; // register operand / source
+        let reg = register_table((byte_2 >> 3) & 7, w); // register operand / source
+        let rm = register_table(byte_2 & 7, w); // register operand / dest
 
+        // it should be the opposite, but nasm always return 0
+        // if d is 0, instruction source is specified in reg field, else if d is 1 in rm field
+        let (source, dest) = if d == 0 { (reg, rm) } else { (rm, reg) };
         if cfg!(debug_assertions) {
             println!("############# DEBUG ##############");
             println!("{byte_1:b} {byte_2:b}");
@@ -40,8 +43,8 @@ fn main() {
             println!("d : {d:b}");
             println!("w : {w:b}");
             println!("reg_mod : {reg_mode:b}");
-            println!("reg: {dest:b}");
-            println!("rm: {source:b}");
+            println!("reg: {reg}");
+            println!("rm: {rm}");
             println!("############# DEBUG ##############");
         }
 
@@ -50,7 +53,8 @@ fn main() {
         } else {
             panic!("opcoded {op_code:b} not implemented");
         }
-        print!("{}, {}", register_table(source, w), register_table(dest, w));
+        print!("{dest}, {source}");
+
         println!();
     }
 }
