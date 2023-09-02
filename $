@@ -51,7 +51,6 @@ fn main() {
             let reg = (byte_2 >> 3) & 7;
             let rm = byte_2 & 7;
 
-            let (reg, rm) = if d == 1 { (reg, rm) } else { (rm, reg) };
             if cfg!(debug_assertions) {
                 println!("############# DEBUG ##############");
                 println!("{byte_1:b} {byte_2:b}");
@@ -59,52 +58,46 @@ fn main() {
                 println!("d : {d:b}");
                 println!("w : {w:b}");
                 println!("reg_mod : {reg_mode:b}");
-                println!("reg : {reg:b}");
-                println!("rm : {rm:b}");
-                println!("############# DEBUG ##############");
-
                 println!();
             }
+
             if reg_mode == REGISTER_TO_REGISTER_MODE {
+                continue; // todo remove
                 let reg = REGISTERS[add_two_bytes(reg, w) as usize]; // register operand / source
                 let rm = REGISTERS[add_two_bytes(rm, w) as usize]; // register operand / dest
 
-                println!("mov {reg}, {rm}");
-            } else if reg_mode < 3 {
-                let mut acc = 0u16;
+                // if d is 0, instruction source is specified in reg field, else if d is 1 in rm field
+                let (source, dest) = if d == 0 { (reg, rm) } else { (rm, reg) };
+                println!("mov {dest}, {source}");
+            } else if reg_mode == MEMORY_MODE_EIGHT_BITS_DISPLACEMENT
+                || reg_mode == MEMORY_MODE_SIXTEEN_BITS_DISPLACEMENT
+            {
+                reader
+                    .read_exact(&mut buffer)
+                    .expect("op mov memory mode 8bits displacement requires an extra byte");
+                let disp_lo = buffer[0];
 
-                if reg_mode > 0 || rm == 3 {
-                    reader
-                        .read_exact(&mut buffer)
-                        .expect("op mov memory mode 8bits displacement requires an extra byte");
-                    let disp_lo = buffer[0];
-                    acc = disp_lo as u16;
-                }
+                // if d is 0, instruction source is specified in reg field, else if d is 1 in rm field
+                let (source, dest) = if d == 0 { (reg, rm) } else { (rm, reg) };
 
-                let source = REGISTERS[add_two_bytes(reg, w) as usize]; // register operand / source
+                let source = REGISTERS[add_two_bytes(source, w) as usize]; // register operand / source
+                let source = format!("{source}");
+                let mut acc = disp_lo;
 
-                if reg_mode == MEMORY_MODE_SIXTEEN_BITS_DISPLACEMENT
-                    || (reg_mode == MEMORY_MODE && rm == 3)
-                {
+                if reg_mode == MEMORY_MODE_SIXTEEN_BITS_DISPLACEMENT {
                     reader
                         .read_exact(&mut buffer)
                         .expect("op mov memory mode 16bits displacement requires two extra bytes");
                     let disp_hi = buffer[0];
-                    acc = ((disp_hi as u16) << 8) | acc as u16;
+                    acc = disp_hi + acc;
                 }
-                let mut dest = format!("{}", EFFECTIVE_ADDR_CALCULATION_MOD[rm as usize],);
+                let mut dest = format!("{}", EFFECTIVE_ADDR_CALCULATION_MOD[dest as usize],);
                 if acc > 0 {
-                    dest += " + ";
-                    dest += &format!("{acc}");
+                    dest += "+ ";
+                    dest.push(acc as char);
                 }
-                dest.insert(0, '[');
-                dest.push(']');
 
-                if d == 0 {
-                    println!("mov {dest}, {source}",);
-                } else {
-                    println!("mov {source}, {dest}",);
-                }
+                println!("mov {source}, [{dest}]");
             }
         }
     }

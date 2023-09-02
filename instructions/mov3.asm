@@ -30,6 +30,6 @@ mov ah, [bx + si + 4]
 mov al, [bx + si + 4999]
 
 ; Dest address calculation
-mov [bx + di], cx
-mov [bp + si], cl
-mov [bp], ch
+;mov [bx + di], cx
+;mov [bp + si], cl
+;mov [bp], ch
